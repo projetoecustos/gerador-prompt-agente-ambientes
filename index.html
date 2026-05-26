@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Prompt para Agente de Ambientes Realistas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #15222e;
+    --muted: #667789;
+    --line: #d7e0e8;
+    --soft: #f5f8fa;
+    --paper: #ffffff;
+    --green: #0e9f7a;
+    --green-dark: #0b765c;
+    --coral: #df6b57;
+    --gold: #b88735;
+    --blue: #286c9f;
+    --shadow: 0 22px 60px rgba(21, 34, 46, 0.22);
+  }
+  body {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #15222e 0%, #314351 100%);
+    min-height: 100vh;
+    color: var(--ink);
+    padding: 16px;
+  }
+  .shell {
+    max-width: 1500px;
+    margin: 0 auto;
+    background: var(--paper);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  header {
+    background: #15222e;
+    color: #fff;
+    padding: 24px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  h1 { font-size: 22px; line-height: 1.2; letter-spacing: 0; }
+  .brand {
+    background: var(--green);
+    border-radius: 999px;
+    padding: 8px 15px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 410px minmax(0, 1fr);
+    min-height: 820px;
+  }
+  aside {
+    background: var(--soft);
+    border-right: 1px solid var(--line);
+    padding: 22px;
+  }
+  main { padding: 24px 26px; }
+  h2 {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin: 20px 0 9px;
+  }
+  h2:first-child { margin-top: 0; }
+  .option-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .option-btn {
+    min-height: 54px;
+    border: 1.5px solid #c7d2dc;
+    background: #fff;
+    border-radius: 8px;
+    padding: 9px 8px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 11px;
+    color: #2f3d49;
+    text-align: center;
+    transition: 0.16s ease;
+  }
+  .option-btn span {
+    display: block;
+    color: var(--muted);
+    font-weight: 650;
+    font-size: 9.5px;
+    margin-top: 3px;
+    line-height: 1.2;
+  }
+  .option-btn.active {
+    color: #fff;
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 7px 18px rgba(14, 159, 122, 0.24);
+  }
+  .option-btn.active span { color: rgba(255,255,255,0.86); }
+  .field { margin-bottom: 12px; }
+  label {
+    display: block;
+    color: #425466;
+    font-size: 11.5px;
+    font-weight: 800;
+    margin-bottom: 5px;
+  }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    border: 1.5px solid #c7d2dc;
+    border-radius: 8px;
+    background: #fff;
+    padding: 9px 10px;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12.5px;
+    outline: none;
+  }
+  textarea { min-height: 68px; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(14,159,122,0.14);
+  }
+  .range-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .range-label strong { color: var(--green); font-size: 12px; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--green);
+  }
+  .checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 10px;
+    min-height: 38px;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--green); }
+  .check label { margin: 0; font-size: 11px; color: #334453; }
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+  }
+  .swatch {
+    border: 1px solid #c7d2dc;
+    background: #fff;
+    border-radius: 8px;
+    min-height: 43px;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+  }
+  .swatch::before {
+    content: "";
+    display: block;
+    height: 22px;
+    background: var(--swatch);
+  }
+  .swatch span {
+    display: block;
+    font-size: 9px;
+    font-weight: 800;
+    color: #425466;
+    padding: 4px 3px;
+    text-align: center;
+    line-height: 1.05;
+  }
+  .swatch.active {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(14,159,122,0.18);
+  }
+  .preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(310px, 0.95fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .photo-panel, .brief-panel {
+    background: #eef3f6;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    min-height: 430px;
+    overflow: hidden;
+  }
+  .photo-stage {
+    min-height: 354px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(255,255,255,0.35) 1px, transparent 1px),
+      #dfe8ed;
+    background-size: 34px 34px;
+  }
+  #uploadedImage {
+    display: none;
+    max-width: 100%;
+    max-height: 520px;
+    border-radius: 10px;
+    box-shadow: 0 16px 34px rgba(21,34,46,0.22);
+  }
+  .empty-photo {
+    max-width: 460px;
+    text-align: center;
+    color: #536575;
+    line-height: 1.45;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .upload-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 14px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+  }
+  .file-input {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    border: 1px dashed #9fb0bf;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 750;
+    overflow: hidden;
+  }
+  .file-input input { width: 100%; font-size: 11px; }
+  .brief-panel { background: #fff; padding: 18px; }
+  .brief-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .brief-title h3 { font-size: 15px; color: var(--ink); }
+  .pill {
+    color: #fff;
+    background: var(--blue);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .card {
+    border-left: 5px solid var(--green);
+    background: #f8fafb;
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 66px;
+  }
+  .card:nth-child(2n) { border-left-color: var(--coral); }
+  .card:nth-child(3n) { border-left-color: var(--gold); }
+  .card .k {
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .card .v {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 900;
+    margin-top: 4px;
+    line-height: 1.2;
+  }
+  .prompt-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .tab {
+    border: 1.5px solid #c7d2dc;
+    background: #fff;
+    color: #344756;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+  .prompt-box {
+    background: #15222e;
+    color: #dce7ee;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .prompt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .prompt-head h3 {
+    color: #7de0c5;
+    font-size: 13px;
+  }
+  .actions { display: flex; gap: 8px; }
+  button.action {
+    border: 0;
+    color: #fff;
+    background: var(--green);
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-weight: 900;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  button.action.secondary { background: #405466; }
+  button.action:hover { filter: brightness(0.94); }
+  .prompt-text {
+    min-height: 295px;
+    max-height: 470px;
+    overflow: auto;
+    padding: 15px;
+    white-space: pre-wrap;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+  .toast {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    background: var(--green);
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 12px;
+    font-weight: 900;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: 0.22s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  @media (max-width: 1100px) {
+    .grid, .preview { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+  @media (max-width: 620px) {
+    body { padding: 8px; }
+    header { align-items: flex-start; flex-direction: column; padding: 20px; }
+    main, aside { padding: 16px; }
+    .option-grid, .checks, .cards { grid-template-columns: 1fr; }
+    .upload-row { grid-template-columns: 1fr; }
+    .prompt-head { align-items: flex-start; flex-direction: column; }
+    .actions { width: 100%; }
+    button.action { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <h1>Gerador de Prompt para Agente de Ambientes Realistas</h1>
+    <span class="brand">@projetoecustos</span>
+  </header>
+
+  <div class="grid">
+    <aside>
+      <h2>1. Ambiente</h2>
+      <div class="option-grid" id="roomOptions"></div>
+
+      <h2>2. Estilo visual</h2>
+      <div class="option-grid" id="styleOptions"></div>
+
+      <h2>3. Modelo de proposta</h2>
+      <div class="option-grid" id="modelOptions"></div>
+
+      <h2>4. Objetivo</h2>
+      <div class="field">
+        <select id="goal">
+          <option value="repaginar sem obra pesada">Repaginar sem obra pesada</option>
+          <option value="reformar com marcenaria planejada">Reformar com marcenaria planejada</option>
+          <option value="valorizar para venda ou aluguel">Valorizar para venda ou aluguel</option>
+          <option value="criar proposta premium para cliente">Criar proposta premium para cliente</option>
+          <option value="melhorar funcionalidade e circulacao">Melhorar funcionalidade e circulacao</option>
+          <option value="criar antes e depois para apresentar ao cliente">Criar antes e depois para apresentar ao cliente</option>
+          <option value="adaptar o ambiente para familia, pets ou criancas">Adaptar para familia, pets ou criancas</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Perfil de uso</label>
+        <select id="profile">
+          <option>casal ou familia pequena, uso diario e visual acolhedor</option>
+          <option>familia com criancas, materiais resistentes e facil limpeza</option>
+          <option>morador solo, rotina pratica e visual contemporaneo</option>
+          <option>imovel para venda ou aluguel, visual neutro e valorizacao rapida</option>
+          <option>cliente alto padrao, acabamento premium e composicao sofisticada</option>
+          <option>ambiente comercial ou studio, durabilidade e forte presenca visual</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Nivel de detalhe da resposta</label>
+        <select id="outputDepth">
+          <option value="completo, com diagnostico, 3 propostas, lista de compras, alertas tecnicos e prompts de imagem">Completo</option>
+          <option value="rapido, com diagnostico direto e ideias principais">Rapido</option>
+          <option value="tecnico, com medidas, ergonomia, execucao, materiais e riscos">Tecnico</option>
+          <option value="comercial, com linguagem de apresentacao para cliente e argumentos de valor">Comercial</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="range-label">Orcamento estimado <strong id="budgetVal">medio</strong></label>
+        <input type="range" id="budget" min="1" max="5" step="1" value="3">
+      </div>
+
+      <div class="field">
+        <label class="range-label">Nivel de transformacao <strong id="changeVal">moderado</strong></label>
+        <input type="range" id="changeLevel" min="1" max="5" step="1" value="3">
+      </div>
+
+      <h2>5. Paleta e materiais</h2>
+      <div class="swatches" id="paletteOptions"></div>
+      <div class="field" style="margin-top:12px;">
+        <label>Material principal desejado</label>
+        <select id="material">
+          <option>madeira clara, pedra clara e metais pretos</option>
+          <option>madeira natural, quartzo branco e metais inox</option>
+          <option>cimento queimado, madeira media e metais grafite</option>
+          <option>marmore claro, laca fosca e metais dourados</option>
+          <option>granito escuro, madeira nogueira e vidro</option>
+          <option>porcelanato acetinado, MDF amadeirado e LED quente</option>
+          <option>revestimento ripado, pedra travertino e pintura mineral</option>
+          <option>MDF freijo, quartzito claro e metais champagne</option>
+          <option>laca off-white, madeira carvalho e pedra cinza suave</option>
+        </select>
+      </div>
+
+      <h2>6. Prioridades</h2>
+      <div class="checks">
+        <div class="check"><input type="checkbox" id="keepLayout" checked><label for="keepLayout">Manter layout</label></div>
+        <div class="check"><input type="checkbox" id="keepFloor"><label for="keepFloor">Manter piso</label></div>
+        <div class="check"><input type="checkbox" id="storage" checked><label for="storage">Mais armazenamento</label></div>
+        <div class="check"><input type="checkbox" id="lighting" checked><label for="lighting">Iluminacao melhor</label></div>
+        <div class="check"><input type="checkbox" id="realistic" checked><label for="realistic">Realismo maximo</label></div>
+        <div class="check"><input type="checkbox" id="costAware" checked><label for="costAware">Custo consciente</label></div>
+        <div class="check"><input type="checkbox" id="easyMaintenance"><label for="easyMaintenance">Facil manutencao</label></div>
+        <div class="check"><input type="checkbox" id="accessibility"><label for="accessibility">Boa ergonomia</label></div>
+      </div>
+
+      <h2>7. Medidas e observacoes</h2>
+      <div class="field">
+        <label>Medidas aproximadas</label>
+        <input type="text" id="measures" value="informar largura, comprimento, pe-direito e pontos de agua/energia se existirem">
+      </div>
+      <div class="field">
+        <label>Limitacoes da obra</label>
+        <textarea id="constraints">evitar quebra estrutural; considerar solucao viavel com fornecedores comuns, marcenaria planejada e instalacao realista</textarea>
+      </div>
+      <div class="field">
+        <label>Evitar no projeto</label>
+        <textarea id="avoid">nao alterar paredes sem justificativa tecnica, nao bloquear circulacao, nao usar decoracao exagerada, nao criar elementos que nao cabem na foto</textarea>
+      </div>
+      <div class="field">
+        <label>O que deve permanecer</label>
+        <textarea id="preserve">preservar portas, janelas, pontos hidraulicos aparentes e estrutura existente, salvo se a foto indicar outra possibilidade</textarea>
+      </div>
+      <div class="field">
+        <label>Pedido extra</label>
+        <textarea id="extra">sugerir ideias bonitas, executaveis no Brasil e coerentes com a foto real enviada</textarea>
+      </div>
+    </aside>
+
+    <main>
+      <div class="preview">
+        <section class="photo-panel">
+          <div class="photo-stage">
+            <img id="uploadedImage" alt="Foto do ambiente carregada">
+            <div class="empty-photo" id="emptyPhoto">Carregue uma foto real do ambiente para conferir o briefing visual antes de copiar o prompt.</div>
+          </div>
+          <div class="upload-row">
+            <div class="file-input"><input id="photoUpload" type="file" accept="image/*"></div>
+            <button class="action secondary" type="button" id="clearPhoto">Limpar foto</button>
+          </div>
+        </section>
+
+        <section class="brief-panel">
+          <div class="brief-title">
+            <h3>Resumo do briefing</h3>
+            <span class="pill" id="briefBadge">Cozinha</span>
+          </div>
+          <div class="cards" id="briefCards"></div>
+        </section>
+      </div>
+
+      <div class="prompt-tabs">
+        <button class="tab active" type="button" data-tab="user">Prompt para usar com a foto</button>
+        <button class="tab" type="button" data-tab="agent">Instrucoes para criar o agente</button>
+      </div>
+
+      <section class="prompt-box">
+        <div class="prompt-head">
+          <h3 id="promptTitle">Prompt final para colar no GPT junto com a imagem</h3>
+          <div class="actions">
+            <button class="action" type="button" id="copyPrompt">Copiar</button>
+            <button class="action secondary" type="button" id="downloadTxt">Baixar TXT</button>
+          </div>
+        </div>
+        <div class="prompt-text" id="promptText"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast">Prompt copiado</div>
+
+<script>
+const rooms = [
+  { id: "cozinha", name: "Cozinha", note: "bancada, armarios, iluminacao" },
+  { id: "sala", name: "Sala", note: "estar, TV, circulacao" },
+  { id: "quarto", name: "Quarto", note: "aconchego, marcenaria" },
+  { id: "banheiro", name: "Banheiro", note: "revestimentos, metais" },
+  { id: "area-gourmet", name: "Area gourmet", note: "churrasqueira, bancada" },
+  { id: "lavanderia", name: "Lavanderia", note: "funcionalidade compacta" },
+  { id: "varanda", name: "Varanda", note: "jardim, estar, luz natural" },
+  { id: "home-office", name: "Home office", note: "produtividade e organizacao" },
+  { id: "closet", name: "Closet", note: "modulos, espelhos, luz" },
+  { id: "fachada", name: "Fachada", note: "volumetria e valorizacao" },
+  { id: "hall", name: "Hall / Entrada", note: "primeira impressao" },
+  { id: "quarto-infantil", name: "Quarto infantil", note: "seguranca e crescimento" }
+];
+
+const styles = [
+  { id: "contemporaneo", name: "Contemporaneo", note: "limpo e atual" },
+  { id: "minimalista", name: "Minimalista", note: "poucos elementos" },
+  { id: "industrial", name: "Industrial leve", note: "grafite e textura" },
+  { id: "escandinavo", name: "Escandinavo", note: "claro e natural" },
+  { id: "brasileiro", name: "Brasileiro natural", note: "madeira e calor" },
+  { id: "sofisticado", name: "Sofisticado", note: "pedras e metais" },
+  { id: "organico", name: "Organico moderno", note: "curvas e texturas" },
+  { id: "japandi", name: "Japandi", note: "calmo e artesanal" },
+  { id: "mediterraneo", name: "Mediterraneo", note: "claro, natural, leve" },
+  { id: "classico", name: "Classico atual", note: "boiserie e elegancia" },
+  { id: "luxo", name: "Luxo discreto", note: "premium sem excesso" },
+  { id: "compacto", name: "Compacto inteligente", note: "cada cm aproveitado" }
+];
+
+const models = [
+  { id: "3-niveis", name: "3 niveis", note: "economico, medio, premium" },
+  { id: "antes-depois", name: "Antes/depois", note: "impacto visual comparativo" },
+  { id: "cliente", name: "Apresentacao", note: "texto para vender a ideia" },
+  { id: "execucao", name: "Execucao", note: "passo a passo de obra" },
+  { id: "imagem", name: "Prompts imagem", note: "cenas fotorealistas" },
+  { id: "checklist", name: "Checklist", note: "compras e prioridades" }
+];
+
+const palettes = [
+  { id: "neutra", name: "Neutra", color: "#e8e2d8", text: "tons claros, madeira suave e contraste leve" },
+  { id: "quente", name: "Quente", color: "#c78b52", text: "madeira quente, off-white e terracota discreto" },
+  { id: "grafite", name: "Grafite", color: "#46515b", text: "cinza grafite, madeira media e metais pretos" },
+  { id: "verde", name: "Verde", color: "#6e8f71", text: "verde oliva, areia, madeira natural e pedra clara" },
+  { id: "premium", name: "Premium", color: "#b99a5d", text: "marmore claro, champagne, laca fosca e luz quente" },
+  { id: "preto-madeira", name: "Preto+Madeira", color: "#232629", text: "preto fosco, madeira natural, pedra clara e luz quente" },
+  { id: "areia", name: "Areia", color: "#d2bd9d", text: "areia, palha, linho, carvalho claro e pedra acetinada" },
+  { id: "azul", name: "Azul", color: "#4a6f8f", text: "azul acinzentado, branco quente, madeira clara e metais inox" },
+  { id: "terracota", name: "Terracota", color: "#b5654d", text: "terracota suave, off-white, madeira media e fibras naturais" },
+  { id: "monocromatica", name: "Monocrom.", color: "#b8bec2", text: "cinzas quentes, branco quebrado, textura mineral e metal grafite" }
+];
+
+const budgetLabels = {
+  1: "baixo",
+  2: "economico",
+  3: "medio",
+  4: "alto",
+  5: "premium"
+};
+
+const changeLabels = {
+  1: "leve",
+  2: "baixo",
+  3: "moderado",
+  4: "alto",
+  5: "transformacao completa"
+};
+
+let state = {
+  room: rooms[0],
+  style: styles[0],
+  model: models[0],
+  palette: palettes[0],
+  activeTab: "user"
+};
+
+function optionButton(item, group, activeId) {
+  const button = document.createElement("button");
+  button.className = "option-btn" + (item.id === activeId ? " active" : "");
+  button.type = "button";
+  button.innerHTML = `${item.name}<span>${item.note}</span>`;
+  button.addEventListener("click", () => {
+    state[group] = item;
+    renderOptions();
+    update();
+  });
+  return button;
+}
+
+function renderOptions() {
+  const roomBox = document.getElementById("roomOptions");
+  const styleBox = document.getElementById("styleOptions");
+  const modelBox = document.getElementById("modelOptions");
+  roomBox.innerHTML = "";
+  styleBox.innerHTML = "";
+  modelBox.innerHTML = "";
+  rooms.forEach(room => roomBox.appendChild(optionButton(room, "room", state.room.id)));
+  styles.forEach(style => styleBox.appendChild(optionButton(style, "style", state.style.id)));
+  models.forEach(model => modelBox.appendChild(optionButton(model, "model", state.model.id)));
+
+  const paletteBox = document.getElementById("paletteOptions");
+  paletteBox.innerHTML = "";
+  palettes.forEach(palette => {
+    const button = document.createElement("button");
+    button.className = "swatch" + (palette.id === state.palette.id ? " active" : "");
+    button.type = "button";
+    button.style.setProperty("--swatch", palette.color);
+    button.innerHTML = `<span>${palette.name}</span>`;
+    button.addEventListener("click", () => {
+      state.palette = palette;
+      renderOptions();
+      update();
+    });
+    paletteBox.appendChild(button);
+  });
+}
+
+function value(id) {
+  return document.getElementById(id).value.trim();
+}
+
+function checked(id) {
+  return document.getElementById(id).checked;
+}
+
+function selectedBudget() {
+  return budgetLabels[document.getElementById("budget").value];
+}
+
+function selectedChange() {
+  return changeLabels[document.getElementById("changeLevel").value];
+}
+
+function prioritiesText() {
+  const list = [];
+  if (checked("keepLayout")) list.push("manter a disposicao geral e propor melhorias sem mudar a estrutura principal");
+  if (checked("keepFloor")) list.push("preservar o piso existente e harmonizar a proposta com ele");
+  if (checked("storage")) list.push("aumentar armazenamento com marcenaria inteligente");
+  if (checked("lighting")) list.push("melhorar iluminacao geral, funcional e decorativa");
+  if (checked("realistic")) list.push("priorizar resultado fotorealista, proporcional e executavel");
+  if (checked("costAware")) list.push("evitar solucoes caras sem ganho claro de uso ou estetica");
+  if (checked("easyMaintenance")) list.push("escolher acabamentos duraveis, lavaveis e faceis de manter");
+  if (checked("accessibility")) list.push("considerar ergonomia, alturas confortaveis, passagens livres e seguranca de uso");
+  return list.length ? list.join("; ") : "priorizar uma proposta equilibrada e realista";
+}
+
+function buildUserPrompt() {
+  return `Analise a imagem real anexada deste ambiente e crie ideias realistas de design de interiores.
+
+Ambiente: ${state.room.name}
+Estilo desejado: ${state.style.name}
+Modelo de proposta: ${state.model.name} - ${state.model.note}
+Objetivo principal: ${value("goal")}
+Perfil de uso: ${value("profile")}
+Orcamento estimado: ${selectedBudget()}
+Nivel de transformacao: ${selectedChange()}
+Nivel de detalhe esperado: ${value("outputDepth")}
+Paleta desejada: ${state.palette.text}
+Materiais desejados: ${value("material")}
+Medidas aproximadas: ${value("measures")}
+Limitacoes da obra: ${value("constraints")}
+Evitar no projeto: ${value("avoid")}
+O que deve permanecer: ${value("preserve")}
+Prioridades: ${prioritiesText()}
+Pedido extra: ${value("extra")}
+
+Use a foto como base obrigatoria. Respeite proporcoes, portas, janelas, pilares, pontos hidraulicos, eletricos, pe-direito, circulacao e entrada de luz visiveis na imagem. Nao invente paredes, aberturas ou medidas impossiveis. Quando algo nao estiver claro na foto, declare a suposicao antes da sugestao.
+
+Antes de propor, leia a foto e identifique:
+- pontos fortes do ambiente;
+- problemas de circulacao, armazenamento, iluminacao, proporcao e acabamento;
+- elementos que devem ser mantidos;
+- oportunidades de baixo custo;
+- oportunidades de alto impacto visual;
+- riscos tecnicos que exigem medicao presencial.
+
+Entregue:
+1. Diagnostico rapido do ambiente atual.
+2. Conceito principal da proposta em uma frase.
+3. Tres ideias realistas de transformacao: economica, intermediaria e premium.
+4. Para cada ideia, descreva layout, materiais, cores, iluminacao, marcenaria, decoracao, objetos, plantas, texturas e o que deve ser mantido.
+5. Sugira modelos especificos quando fizer sentido: bancada, painel, nichos, armarios, cabeceira, ilha, mesa, espelho, revestimento, luminarias, cortinas, tapete e composicao de quadros.
+6. Liste itens de compra e execucao por prioridade: essencial, desejavel e opcional.
+7. Aponte medidas que precisam ser confirmadas no local e riscos tecnicos.
+8. Crie uma mini tabela com: acao, impacto visual, dificuldade, custo relativo e observacao.
+9. Gere um prompt de imagem fotorealista para cada ideia, mantendo a estrutura real do ambiente da foto.
+10. Gere tambem um prompt negativo para evitar erros comuns: moveis deformados, escala errada, paredes inventadas, excesso de decoracao, luz incoerente e materiais irreais.
+
+Formato de resposta: claro, profissional, em portugues do Brasil, com foco em ambientes bonitos, vendaveis, proporcionais e executaveis no Brasil.`;
+}
+
+function buildAgentPrompt() {
+  return `Voce e um agente especialista em interiores residenciais realistas para o mercado brasileiro.
+
+Sua funcao e analisar fotos reais de ambientes enviadas pelo usuario e transformar o briefing em ideias executaveis, bonitas e proporcionais. Voce deve agir como designer de interiores com visao tecnica, comercial e pratica de obra.
+
+Regras obrigatorias:
+- Use a imagem enviada como fonte principal de verdade.
+- Preserve estrutura, portas, janelas, pilares, pe-direito, pontos hidraulicos e eletricos quando forem visiveis.
+- Nao prometa alteracoes estruturais sem alertar que dependem de avaliacao tecnica.
+- Priorize proporcao realista, circulacao, ergonomia, iluminacao, ventilacao e materiais encontrados no Brasil.
+- Quando a foto nao permitir confirmar uma informacao, diga qual suposicao esta usando.
+- Crie propostas em niveis: economica, intermediaria e premium.
+- Evite ideias genericas. Explique onde cada elemento entra no ambiente da foto.
+- Sempre inclua materiais, cores, iluminacao, marcenaria, decoracao, itens de compra e alertas tecnicos.
+- Ao gerar prompts de imagem, peca fotorealismo, lente de arquitetura, luz natural coerente e manutencao da estrutura real do ambiente.
+- Separe o que e cosmetico, o que exige marcenaria, o que exige eletrica/hidraulica e o que precisa de profissional habilitado.
+- Para ambientes pequenos, explique solucoes compactas e medidas minimas de circulacao.
+- Para cozinha, banheiro, lavanderia e area gourmet, tenha cuidado extra com agua, tomadas, exaustao, impermeabilizacao e revestimentos.
+- Para quartos e salas, priorize conforto, armazenamento, proporcao dos moveis e temperatura de luz.
+- Para fachada, hall e varanda, priorize durabilidade, manutencao, insolacao e impacto visual.
+
+Tom de resposta:
+Profissional, direto, visual e pratico. Responda em portugues do Brasil.
+
+Fluxo ideal:
+1. Ler a imagem.
+2. Identificar tipo de ambiente, problemas e oportunidades.
+3. Cruzar a foto com o prompt/briefing enviado pelo usuario.
+4. Entregar tres caminhos realistas.
+5. Incluir checklist de compras e execucao por prioridade.
+6. Fechar com prompts fotorealistas e prompts negativos mantendo a base da foto.`;
+}
+
+function buildCards() {
+  const cards = [
+    ["Ambiente", state.room.name],
+    ["Estilo", state.style.name],
+    ["Modelo", state.model.name],
+    ["Objetivo", value("goal")],
+    ["Perfil", value("profile")],
+    ["Orcamento", selectedBudget()],
+    ["Transformacao", selectedChange()],
+    ["Paleta", state.palette.name],
+    ["Materiais", value("material")],
+    ["Prioridade", checked("realistic") ? "Realismo maximo" : "Briefing flexivel"]
+  ];
+  document.getElementById("briefCards").innerHTML = cards.map(([k, v]) => `
+    <div class="card">
+      <div class="k">${k}</div>
+      <div class="v">${v}</div>
+    </div>
+  `).join("");
+  document.getElementById("briefBadge").textContent = state.room.name;
+}
+
+function update() {
+  document.getElementById("budgetVal").textContent = selectedBudget();
+  document.getElementById("changeVal").textContent = selectedChange();
+  buildCards();
+  const isAgent = state.activeTab === "agent";
+  document.getElementById("promptTitle").textContent = isAgent ? "Instrucoes para configurar o agente GPT" : "Prompt final para colar no GPT junto com a imagem";
+  document.getElementById("promptText").textContent = isAgent ? buildAgentPrompt() : buildUserPrompt();
+}
+
+function copyPrompt() {
+  const text = document.getElementById("promptText").textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById("toast");
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1500);
+  });
+}
+
+function downloadPrompt() {
+  const blob = new Blob([document.getElementById("promptText").textContent], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = state.activeTab === "agent" ? "instrucoes_agente_ambientes.txt" : "prompt_ambiente_realista.txt";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function setup() {
+  renderOptions();
+  [
+    "goal", "profile", "outputDepth", "budget", "changeLevel", "material", "measures", "constraints", "avoid", "preserve", "extra",
+    "keepLayout", "keepFloor", "storage", "lighting", "realistic", "costAware", "easyMaintenance", "accessibility"
+  ].forEach(id => {
+    document.getElementById(id).addEventListener("input", update);
+    document.getElementById(id).addEventListener("change", update);
+  });
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      state.activeTab = tab.dataset.tab;
+      document.querySelectorAll(".tab").forEach(item => item.classList.toggle("active", item === tab));
+      update();
+    });
+  });
+
+  document.getElementById("photoUpload").addEventListener("change", event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      document.getElementById("uploadedImage").src = loadEvent.target.result;
+      document.getElementById("uploadedImage").style.display = "block";
+      document.getElementById("emptyPhoto").style.display = "none";
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("clearPhoto").addEventListener("click", () => {
+    document.getElementById("photoUpload").value = "";
+    document.getElementById("uploadedImage").removeAttribute("src");
+    document.getElementById("uploadedImage").style.display = "none";
+    document.getElementById("emptyPhoto").style.display = "block";
+  });
+
+  document.getElementById("copyPrompt").addEventListener("click", copyPrompt);
+  document.getElementById("downloadTxt").addEventListener("click", downloadPrompt);
+  update();
+}
+
+setup();
+</script>
+</body>
+</html>
